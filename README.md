@@ -16,10 +16,14 @@ for structured stores. It holds no schema, no cube and no governance decision.
 ```
 
 ```bash
-pip install .                          # the host
-pip install ../predictor/olap/store    # a provider, as its own distribution
+pip install "git+https://github.com/harveybc/data-warehouse.git"                       # the host
+pip install "git+https://github.com/harveybc/predictor.git#subdirectory=olap/store"    # a provider
 python -m data_warehouse_service.main --load_config host.json --print-identity
 ```
+
+A fresh install can serve something immediately: `examples/config/sqlite_demo.json` uses
+`sqlite_store`, the disposable provider shipped with the host.
+`examples/config/predictor_olap.json` is the real shape, and needs `predictor-olap-store`.
 
 ## What the host guarantees
 
@@ -45,6 +49,6 @@ That parity harness runs both hosts over a **throwaway SQLite database** and rem
 
 ## Status
 
-Implemented and proven against a disposable SQLite provider and against the installed
-`predictor-olap-store`; **not deployed**. Migration sequence and scope exclusions:
-`data-gov/docs/STORE_PACKAGES_DESIGN.md`.
+Stage by stage in [docs/IMPLEMENTATION_STATE.md](docs/IMPLEMENTATION_STATE.md), which is
+the persistent state of this work. Design, migration sequence and scope exclusions:
+[data-gov/docs/STORE_PACKAGES_DESIGN.md](https://github.com/harveybc/data-gov/blob/master/docs/STORE_PACKAGES_DESIGN.md).

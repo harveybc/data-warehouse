@@ -1,0 +1,10 @@
+{
+  "store_id": "sqlite_demo",
+  "title": "disposable sqlite warehouse",
+  "web_port": 5069,
+  "backend": {
+    "entry_point": "sqlite_store",
+    "distribution": "data-warehouse-service",
+    "settings": {"database": "./var/demo.sqlite", "max_rows": 1000}
+  }
+}
