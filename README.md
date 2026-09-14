@@ -1,6 +1,6 @@
 # data-warehouse
 
-A reusable **warehouse host**: the HTTP contract, the configuration and the backend seam
+A reusable **warehouse host**: the HTTP contract, the configuration and the provider interface
 for structured stores. It holds no schema, no cube and no governance decision.
 
 ```json
@@ -19,6 +19,7 @@ for structured stores. It holds no schema, no cube and no governance decision.
 pip install "git+https://github.com/harveybc/data-warehouse.git"                       # the host
 pip install "git+https://github.com/harveybc/predictor.git#subdirectory=olap/store"    # a provider
 python -m data_warehouse_service.main --load_config host.json --print-identity
+python -m data_warehouse_service.main --load_config host.json
 ```
 
 A fresh install can serve something immediately: `examples/config/sqlite_demo.json` uses
@@ -55,13 +56,34 @@ this host, no horizontal overflow — with PNGs and a receipt in [docs/console/]
 
 ## Tests
 
-The suite under `tests/` covers discovery and the HTTP contract (18 tests), and
+The suite under `tests/` covers discovery, the HTTP contract and the console, and
 `tools/compare_with_legacy_host.py` compares this host with the OLAP host it replaces.
 
 That parity harness runs both hosts over a **throwaway SQLite database** and removes every
 `PG*` variable from their environment, so it cannot reach the production cube.
 
 ## Status
+
+This repository is public. The first external provider is
+[predictor/olap/store](https://github.com/harveybc/predictor/tree/master/olap/store),
+now on that repository's default branch. The host was deployed on 2026-09-14
+against the existing PostgreSQL cube without a database migration or historical
+table-count changes. A governed, non-scientific synthetic micro-run added one
+terminal, four metrics, one input receipt and one artifact; replay did not duplicate
+them. [Deployment receipt](https://github.com/harveybc/predictor/blob/master/docs/handoffs/MUSASHI_STORE_HOSTS_PRODUCTION_ACCEPTANCE_2026_09_14.md).
+
+## Use with a coding agent
+
+Read [AGENTS.md](AGENTS.md), the implementation state and
+[data-gov's integration guide](https://github.com/harveybc/data-gov/blob/master/docs/INTEGRATION_EXAMPLES.md).
+Use the SQLite demo or a disposable PostgreSQL database for tests. Install the
+provider separately and report its exact identity. Check inventory, relation
+schemas, query behavior, reporting, duplicate submission and reconciliation.
+Do not reset the real cube or treat historical rows as test fixtures. Report
+consumer adoption separately from host deployment: an available endpoint alone
+does not prove every experiment is reporting through it.
+
+## Work plan
 
 Stage by stage in [docs/IMPLEMENTATION_STATE.md](docs/IMPLEMENTATION_STATE.md), which is
 the persistent state of this work. Design, migration sequence and scope exclusions:

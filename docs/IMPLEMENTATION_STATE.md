@@ -13,7 +13,7 @@ States: `PENDING` | `IMPLEMENTED` | `PROVEN_DISPOSABLE` | `PUBLISHED` | `DEPLOYE
 | 2. Implement | host installable as a wheel; provider installable from its own repository; discovery proven through a real install | `PROVEN_DISPOSABLE` — the clone-and-install check in `docs/PARITY.md` |
 | 3. Integrate | parity with the adapter it replaces: tables/views, query behaviour, receipts, outcomes, idempotence | `PROVEN_DISPOSABLE` — 11/11 data routes identical, `docs/PARITY.md` |
 | 4. Interface | AdminLTE configuration and inventory views, relation schema, bounded query, desktop and mobile | `PROVEN_DISPOSABLE` — `tests/test_console.py` (10) and `tools/console_screenshots.py`: eight pages driven in a real browser at 1440×900 and 390×844, every asset served by this host, zero horizontal overflow; receipt and PNGs in `docs/console/` |
-| 5. Put into use | controlled transition over the same data and IDs; governed micro-run through both hosts with exact reconciliation | `PENDING` |
+| 5. Put into use | controlled transition over the same data and IDs; governed micro-run through both hosts with exact reconciliation | `PROVEN_PRODUCTION` on 2026-09-14: synthetic governed terminal, four metrics, idempotent replay, exact reconciliation; historical table counts unchanged |
 | 6. Adopt | consumer configurations updated; new campaigns use this route by default | `PENDING` |
 
 ## Requirements this host must satisfy
