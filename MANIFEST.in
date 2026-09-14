@@ -1,0 +1,2 @@
+include data_warehouse_service/templates/*.html
+include data_warehouse_service/static/css/*.css

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ store_id }} | data-warehouse{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/adminlte.min.css') }}">
+  <style>
+    body { font-size: 14px; background: #1f2d3d; color: #f8f9fa; overflow-x: hidden; }
+    .main-header { background: #1a2226 !important; }
+    .content-wrapper { background: #1f2d3d; margin-left: 0 !important; }
+    .small-box .inner h3 { font-size: 1.6rem; word-break: break-word; }
+    code, .text-monospace { word-break: break-all; }
+    table { width: 100%; }
+  </style>
+</head>
+<body class="hold-transition layout-top-nav dark-mode">
+<div class="wrapper">
+  <nav class="main-header navbar navbar-expand-md navbar-dark">
+    <div class="container-fluid">
+      <a href="{{ url_for('console_home') }}" class="navbar-brand">
+        <span class="brand-text"><strong>data-warehouse</strong> · {{ store_id }}</span>
+      </a>
+      <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbar">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbar">
+        <ul class="navbar-nav ml-auto">
+          <li class="nav-item"><a class="nav-link" href="{{ url_for('console_home') }}">Tables and views</a></li>
+          <li class="nav-item"><a class="nav-link" href="{{ url_for('console_query') }}">Query</a></li>
+          <li class="nav-item"><a class="nav-link" href="{{ url_for('console_settings') }}">Configuration</a></li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+  <div class="content-wrapper">
+    <div class="content pt-3">
+      <div class="container-fluid">
+        {% block content %}{% endblock %}
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

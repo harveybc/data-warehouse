@@ -1,3 +1,5 @@
+MANIFEST.in
+README.md
 setup.py
 data_warehouse_service/__init__.py
 data_warehouse_service/auth.py
@@ -6,6 +8,7 @@ data_warehouse_service/config.py
 data_warehouse_service/discovery.py
 data_warehouse_service/errors.py
 data_warehouse_service/main.py
+data_warehouse_service/operator_config.py
 data_warehouse_service/web.py
 data_warehouse_service.egg-info/PKG-INFO
 data_warehouse_service.egg-info/SOURCES.txt
@@ -13,7 +16,15 @@ data_warehouse_service.egg-info/dependency_links.txt
 data_warehouse_service.egg-info/entry_points.txt
 data_warehouse_service.egg-info/requires.txt
 data_warehouse_service.egg-info/top_level.txt
+data_warehouse_service/static/css/adminlte.min.css
+data_warehouse_service/static/css/bootstrap.min.css
+data_warehouse_service/templates/base.html
+data_warehouse_service/templates/dashboard.html
+data_warehouse_service/templates/query.html
+data_warehouse_service/templates/relation.html
+data_warehouse_service/templates/settings.html
 data_warehouse_service/testing/__init__.py
 data_warehouse_service/testing/sqlite_store.py
+tests/test_console.py
 tests/test_discovery.py
 tests/test_http_contract.py

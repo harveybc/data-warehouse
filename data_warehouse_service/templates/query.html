@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}{{ store_id }} | query{% endblock %}
+{% block content %}
+<h1 class="h4">Read-only query</h1>
+{% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
+<form method="post" class="mb-3">
+  <label for="sql">SELECT statement</label>
+  <textarea id="sql" name="sql" class="form-control text-monospace" rows="4"
+            spellcheck="false">{{ sql }}</textarea>
+  <button class="btn btn-primary my-2" type="submit">Run</button>
+</form>
+{% if result is not none %}
+<div class="card bg-dark">
+  <div class="card-header">
+    <h2 class="h6 mb-0">{{ result.rows|length }} row(s){% if result.truncated %} · truncated{% endif %}</h2>
+  </div>
+  <div class="card-body p-0">
+    <div class="table-responsive"><table class="table table-sm table-dark mb-0">
+      <thead><tr>{% for column in columns %}<th>{{ column }}</th>{% endfor %}</tr></thead>
+      <tbody>{% for row in result.rows %}
+        <tr>{% for column in columns %}<td class="text-monospace">{{ row.get(column) }}</td>{% endfor %}</tr>
+      {% else %}<tr><td class="text-muted" colspan="{{ columns|length or 1 }}">No row.</td></tr>{% endfor %}
+      </tbody>
+    </table></div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

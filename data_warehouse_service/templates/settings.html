@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}{{ store_id }} | configuration{% endblock %}
+{% block content %}
+<h1 class="h4">Configuration</h1>
+{% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
+{% if saved %}<div class="alert alert-success" role="status">Saved as <strong>pending</strong>.
+The running configuration is unchanged; it is loaded at start.</div>{% endif %}
+<div class="row">
+  <div class="col-12 col-lg-8">
+    <form method="post">
+      <label for="configuration">Service and provider selection</label>
+      <textarea id="configuration" name="configuration" class="form-control text-monospace"
+                rows="22" spellcheck="false">{{ configuration }}</textarea>
+      <button class="btn btn-primary my-3" type="submit">Validate and save pending configuration</button>
+    </form>
+  </div>
+  <aside class="col-12 col-lg-4">
+    <div class="card bg-dark"><div class="card-header"><h2 class="h6 mb-0">Activation</h2></div>
+      <div class="card-body">
+        <dl class="mb-0">
+          <dt>Active</dt><dd>What this process loaded at start</dd>
+          <dt>Pending file</dt><dd class="text-break"><code>{{ pending_path or "not configured" }}</code></dd>
+          <dt>Status</dt><dd>{{ "a pending file exists" if pending_exists else "no pending file" }}</dd>
+        </dl>
+        <p class="text-muted mb-0 mt-3">A pending file is not an authorization and not a
+        deployment. Secrets are never shown here and cannot be saved from here.</p>
+      </div>
+    </div>
+  </aside>
+</div>
+{% endblock %}

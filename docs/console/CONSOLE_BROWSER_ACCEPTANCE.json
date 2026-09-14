@@ -1,0 +1,112 @@
+{
+ "schema": "console_browser_acceptance.v1",
+ "base": "http://127.0.0.1:<port>",
+ "pages": {
+  "inventory-desktop": {
+   "viewport": {
+    "width": 1440,
+    "height": 900
+   },
+   "path": "/",
+   "requests": 3,
+   "external_requests": [],
+   "failed_requests": [],
+   "horizontal_overflow_px": 0,
+   "contains_expected": true,
+   "screenshot": "warehouse-inventory-desktop.png"
+  },
+  "inventory-mobile": {
+   "viewport": {
+    "width": 390,
+    "height": 844
+   },
+   "path": "/",
+   "requests": 3,
+   "external_requests": [],
+   "failed_requests": [],
+   "horizontal_overflow_px": 0,
+   "contains_expected": true,
+   "screenshot": "warehouse-inventory-mobile.png"
+  },
+  "schema-desktop": {
+   "viewport": {
+    "width": 1440,
+    "height": 900
+   },
+   "path": "/relation?relation=gov_terminal",
+   "requests": 3,
+   "external_requests": [],
+   "failed_requests": [],
+   "horizontal_overflow_px": 0,
+   "contains_expected": true,
+   "screenshot": "warehouse-schema-desktop.png"
+  },
+  "schema-mobile": {
+   "viewport": {
+    "width": 390,
+    "height": 844
+   },
+   "path": "/relation?relation=gov_terminal",
+   "requests": 3,
+   "external_requests": [],
+   "failed_requests": [],
+   "horizontal_overflow_px": 0,
+   "contains_expected": true,
+   "screenshot": "warehouse-schema-mobile.png"
+  },
+  "query-desktop": {
+   "viewport": {
+    "width": 1440,
+    "height": 900
+   },
+   "path": "/query",
+   "requests": 3,
+   "external_requests": [],
+   "failed_requests": [],
+   "horizontal_overflow_px": 0,
+   "contains_expected": true,
+   "screenshot": "warehouse-query-desktop.png"
+  },
+  "query-mobile": {
+   "viewport": {
+    "width": 390,
+    "height": 844
+   },
+   "path": "/query",
+   "requests": 3,
+   "external_requests": [],
+   "failed_requests": [],
+   "horizontal_overflow_px": 0,
+   "contains_expected": true,
+   "screenshot": "warehouse-query-mobile.png"
+  },
+  "settings-desktop": {
+   "viewport": {
+    "width": 1440,
+    "height": 900
+   },
+   "path": "/settings",
+   "requests": 3,
+   "external_requests": [],
+   "failed_requests": [],
+   "horizontal_overflow_px": 0,
+   "contains_expected": true,
+   "screenshot": "warehouse-settings-desktop.png"
+  },
+  "settings-mobile": {
+   "viewport": {
+    "width": 390,
+    "height": 844
+   },
+   "path": "/settings",
+   "requests": 3,
+   "external_requests": [],
+   "failed_requests": [],
+   "horizontal_overflow_px": 0,
+   "contains_expected": true,
+   "screenshot": "warehouse-settings-mobile.png"
+  }
+ },
+ "problems": [],
+ "ok": true
+}

@@ -12,7 +12,7 @@ States: `PENDING` | `IMPLEMENTED` | `PROVEN_DISPOSABLE` | `PUBLISHED` | `DEPLOYE
 | 1. Create | repository with README, AGENTS.md, requirements, tests and persistent state, published at a real URL | `PUBLISHED` — https://github.com/harveybc/data-warehouse |
 | 2. Implement | host installable as a wheel; provider installable from its own repository; discovery proven through a real install | `PROVEN_DISPOSABLE` — the clone-and-install check in `docs/PARITY.md` |
 | 3. Integrate | parity with the adapter it replaces: tables/views, query behaviour, receipts, outcomes, idempotence | `PROVEN_DISPOSABLE` — 11/11 data routes identical, `docs/PARITY.md` |
-| 4. Interface | AdminLTE configuration and inventory views, resource metadata, desktop and mobile | `PENDING` |
+| 4. Interface | AdminLTE configuration and inventory views, relation schema, bounded query, desktop and mobile | `PROVEN_DISPOSABLE` — `tests/test_console.py` (10) and `tools/console_screenshots.py`: eight pages driven in a real browser at 1440×900 and 390×844, every asset served by this host, zero horizontal overflow; receipt and PNGs in `docs/console/` |
 | 5. Put into use | controlled transition over the same data and IDs; governed micro-run through both hosts with exact reconciliation | `PENDING` |
 | 6. Adopt | consumer configurations updated; new campaigns use this route by default | `PENDING` |
 
@@ -40,7 +40,9 @@ States: `PENDING` | `IMPLEMENTED` | `PROVEN_DISPOSABLE` | `PUBLISHED` | `DEPLOYE
 | second identical report or terminal | 200 with `already_stored`, no duplicate row |
 | terminal without a campaign | 400 |
 | operation the backend does not declare | 422 |
-| store unreachable | 503, never a refusal attributed to the store |
+| store unreachable | 503, never a refusal attributed to the store; the console states the failure instead of showing an empty list |
+| console query | the result table is rendered and escaped, not a row count in a flash |
+| console shows a secret | never; a redacted value cannot be saved back |
 | two distributions registering the same entry point | startup refusal naming both |
 | configured distribution not the owner of the entry point | startup refusal naming the real owner |
 
@@ -50,5 +52,7 @@ States: `PENDING` | `IMPLEMENTED` | `PROVEN_DISPOSABLE` | `PUBLISHED` | `DEPLOYE
 |---|---|---|
 | discovery | `tests/test_discovery.py` | the resolution rules and every refusal, with the identity recorded |
 | contract | `tests/test_http_contract.py` | routes, status codes, read-only SQL, idempotence, capability refusals, the warehouse/lake boundary |
+| console | `tests/test_console.py` | inventory and schema, an escaped query result table, refusals, and a *pending* save that does not move the active configuration |
+| browser | `tools/console_screenshots.py` | desktop and mobile rendering, local assets only, no horizontal overflow |
 | parity | `tools/compare_with_legacy_host.py` | the legacy adapter and this host answer identically on the same fixture |
 | end to end | `data-gov/tools/verify_flow_v3_e2e.py --new-warehouse-python …` | a full governed campaign through this host |

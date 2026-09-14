@@ -39,6 +39,20 @@ A fresh install can serve something immediately: `examples/config/sqlite_demo.js
 * Read-only SQL. The provider decides what a query may do; the host offers no route that
   could truncate anything.
 
+## Operator console
+
+| page | what it is for |
+|---|---|
+| `/` | store identity, the provider resolved at start, and the tables and views exposed |
+| `/relation?relation=…` | the columns of one relation |
+| `/query` | a bounded read-only query whose **result table** is rendered and escaped, not summarised as a row count |
+| `/settings` | the effective configuration, secrets redacted, and a **pending** save |
+
+A pending file is not an authorization and not a deployment: activation remains the
+service's configuration load. Desktop and mobile are proven in a real browser by
+`tools/console_screenshots.py` — eight pages at 1440×900 and 390×844, every asset served by
+this host, no horizontal overflow — with PNGs and a receipt in [docs/console/](docs/console/).
+
 ## Tests
 
 The suite under `tests/` covers discovery and the HTTP contract (18 tests), and

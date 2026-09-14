@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}{{ store_id }} | tables and views{% endblock %}
+{% block content %}
+<h1 class="h4">{{ meta.title or store_id }}</h1>
+<p class="text-muted">{{ meta.description or "" }}</p>
+
+<div class="row">
+  <div class="col-12 col-md-6 col-lg-3">
+    <div class="small-box bg-info"><div class="inner">
+      <h3>{{ relations|length }}</h3><p>tables and views</p></div></div>
+  </div>
+  <div class="col-12 col-md-6 col-lg-3">
+    <div class="small-box bg-secondary"><div class="inner">
+      <h3>{{ meta.engine or "—" }}</h3><p>engine</p></div></div>
+  </div>
+  <div class="col-12 col-md-6 col-lg-3">
+    <div class="small-box bg-secondary"><div class="inner">
+      <h3>{{ kind }}</h3><p>kind · {{ transport }}</p></div></div>
+  </div>
+  <div class="col-12 col-md-6 col-lg-3">
+    <div class="small-box bg-secondary"><div class="inner">
+      <h3>{{ identity.version or "—" }}</h3><p>{{ identity.distribution or "no provider" }}</p></div></div>
+  </div>
+</div>
+
+<div class="card bg-dark">
+  <div class="card-header"><h2 class="h6 mb-0">Provider resolved at start</h2></div>
+  <div class="card-body">
+    <dl class="row mb-0">
+      <dt class="col-sm-3">Entry point</dt><dd class="col-sm-9"><code>{{ identity.entry_point }}</code></dd>
+      <dt class="col-sm-3">Distribution</dt><dd class="col-sm-9"><code>{{ identity.distribution }} {{ identity.version }}</code></dd>
+      <dt class="col-sm-3">Module</dt><dd class="col-sm-9"><code>{{ identity.module }}</code></dd>
+      <dt class="col-sm-3">Capabilities</dt><dd class="col-sm-9">{{ identity.capabilities|join(", ") }}</dd>
+      <dt class="col-sm-3">Settings digest</dt><dd class="col-sm-9"><code>{{ identity.settings_sha256 }}</code></dd>
+    </dl>
+  </div>
+</div>
+
+<div class="card bg-dark mt-3">
+  <div class="card-header"><h2 class="h6 mb-0">Tables and views</h2></div>
+  <div class="card-body p-0">
+    {% if error %}<div class="alert alert-warning m-3" role="alert">{{ error }}</div>{% endif %}
+    <div class="table-responsive"><table class="table table-sm table-dark mb-0">
+      <thead><tr><th>Relation</th><th>Kind</th><th></th></tr></thead>
+      <tbody>
+      {% for relation in relations %}
+        <tr>
+          <td class="text-monospace">{{ relation.resource_id }}</td>
+          <td>{{ relation.kind or "relation" }}</td>
+          <td><a href="{{ url_for('console_relation', relation=relation.resource_id) }}">schema</a></td>
+        </tr>
+      {% else %}
+        <tr><td colspan="3" class="text-muted">No relation is exposed.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+  </div>
+</div>
+{% endblock %}

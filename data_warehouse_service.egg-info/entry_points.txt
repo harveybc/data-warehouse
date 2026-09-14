@@ -1,2 +1,5 @@
 [console_scripts]
 data-warehouse = data_warehouse_service.main:main
+
+[datawarehouse.backends]
+sqlite_store = data_warehouse_service.testing.sqlite_store:backend

@@ -9,14 +9,20 @@ cannot be reached is 503 — never a refusal attributed to the store.
 
 from __future__ import annotations
 
-from flask import Flask, jsonify, request
+import json
+from pathlib import Path
+
+from flask import Flask, jsonify, render_template, request
 
 from .auth import check_bearer, load_token
+from .operator_config import editable_config, pending_config, write_pending
 from .errors import HoldoutError, StorageUnreachable, UnsupportedError, WarehouseError
 
 
 def create_app(config: dict, backend, identity: dict | None = None) -> Flask:
-    app = Flask(__name__)
+    here = Path(__file__).resolve().parent
+    app = Flask(__name__, template_folder=str(here / "templates"),
+                static_folder=str(here / "static"), static_url_path="/static")
     app.secret_key = config.get("secret_key") or "x"
     identity = dict(identity or {})
     capabilities = set(identity.get("capabilities") or backend.capabilities())
@@ -163,7 +169,83 @@ def create_app(config: dict, backend, identity: dict | None = None) -> Flask:
             return denied
         return jsonify({"error": "this store is a warehouse; it delivers query results, not files"}), 422
 
+    # ---- operator console -------------------------------------------------
+    # Inventory, schema, a bounded read-only query and a *pending* configuration. Saving
+    # prepares; only the service's configuration load activates. No secret is rendered.
+    def _page_context():
+        return {"store_id": config.get("store_id"), "kind": config.get("kind") or "warehouse",
+                "transport": config.get("transport") or "http", "identity": identity}
+
+    @app.get("/")
+    def console_home():
+        meta, relations, error = {}, [], None
+        try:
+            if "describe" in capabilities:
+                meta = backend.describe()
+            if "discover" in capabilities:
+                relations = backend.discover()
+        except Exception as exc:
+            error = f"{type(exc).__name__}: {exc}"
+        return render_template("dashboard.html", meta=meta, relations=relations, error=error,
+                               **_page_context())
+
+    @app.get("/relation")
+    def console_relation():
+        relation = request.args.get("relation") or ""
+        columns, error = [], None
+        try:
+            if "schema" in capabilities:
+                columns = backend.schema(relation).get("columns") or []
+            else:
+                error = "this store does not expose schema metadata"
+        except FileNotFoundError:
+            error = f"unknown relation {relation!r}"
+        except Exception as exc:
+            error = f"{type(exc).__name__}: {exc}"
+        return render_template("relation.html", relation=relation, columns=columns, error=error,
+                               **_page_context())
+
+    @app.route("/query", methods=["GET", "POST"])
+    def console_query():
+        sql, result, error, columns = "", None, None, []
+        if request.method == "POST":
+            sql = request.form.get("sql") or ""
+            try:
+                if "query" not in capabilities:
+                    raise UnsupportedError("this store does not serve queries")
+                result = backend.query(sql)
+                rows = result.get("rows") or []
+                columns = list(rows[0].keys()) if rows else []
+            except (ValueError, WarehouseError) as exc:
+                error = str(exc)
+            except Exception as exc:
+                error = f"{type(exc).__name__}: {exc}"
+        return render_template("query.html", sql=sql, result=result, columns=columns,
+                               error=error, **_page_context())
+
+    @app.route("/settings", methods=["GET", "POST"])
+    def console_settings():
+        pending_path = config.get("operator_config_path")
+        error = saved = None
+        text = json.dumps(editable_config(config), indent=1, sort_keys=True)
+        if request.method == "POST":
+            text = request.form.get("configuration") or ""
+            try:
+                proposed = pending_config(config, text)
+                if not pending_path:
+                    raise ValueError("this service has no operator_config_path, so a pending "
+                                     "configuration has nowhere to go")
+                write_pending(pending_path, proposed)
+                saved = True
+            except ValueError as exc:
+                error = str(exc)
+        return render_template("settings.html", configuration=text, error=error, saved=saved,
+                               pending_path=pending_path,
+                               pending_exists=bool(pending_path and Path(pending_path).is_file()),
+                               **_page_context())
+
     return app
+
 
 
 def serve(config: dict, backend, identity: dict | None = None) -> int:

@@ -6,6 +6,7 @@ setup(
     description="Reusable warehouse host: HTTP contract, configuration and backend interface",
     packages=find_packages(include=["data_warehouse_service", "data_warehouse_service.*"]),
     include_package_data=True,
+    package_data={"data_warehouse_service": ["templates/*.html", "static/css/*.css"]},
     entry_points={
         "console_scripts": ["data-warehouse=data_warehouse_service.main:main"],
         # A disposable SQLite provider shipped with the host, so a fresh install can serve
