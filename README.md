@@ -72,6 +72,11 @@ table-count changes. A governed, non-scientific synthetic micro-run added one
 terminal, four metrics, one input receipt and one artifact; replay did not duplicate
 them. [Deployment receipt](https://github.com/harveybc/predictor/blob/master/docs/handoffs/MUSASHI_STORE_HOSTS_PRODUCTION_ACCEPTANCE_2026_09_14.md).
 
+A subsequent [four-consumer production check](https://github.com/harveybc/predictor/blob/master/docs/handoffs/MUSASHI_SYNTHETIC_CATALOG_AND_FOUR_CONSUMERS_ACCEPTANCE_2026_09_14.md)
+added twelve reconciled outcomes and 119 metrics from preprocessor, feature-eng,
+feature-extractor and predictor. It is a mechanics check on synthetic inputs,
+not evidence that those transformations improve forecasting or trading.
+
 ## Use with a coding agent
 
 Read [AGENTS.md](AGENTS.md), the implementation state and

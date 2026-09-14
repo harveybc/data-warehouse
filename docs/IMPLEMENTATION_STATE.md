@@ -14,7 +14,12 @@ States: `PENDING` | `IMPLEMENTED` | `PROVEN_DISPOSABLE` | `PUBLISHED` | `DEPLOYE
 | 3. Integrate | parity with the adapter it replaces: tables/views, query behaviour, receipts, outcomes, idempotence | `PROVEN_DISPOSABLE` — 11/11 data routes identical, `docs/PARITY.md` |
 | 4. Interface | AdminLTE configuration and inventory views, relation schema, bounded query, desktop and mobile | `PROVEN_DISPOSABLE` — `tests/test_console.py` (10) and `tools/console_screenshots.py`: eight pages driven in a real browser at 1440×900 and 390×844, every asset served by this host, zero horizontal overflow; receipt and PNGs in `docs/console/` |
 | 5. Put into use | controlled transition over the same data and IDs; governed micro-run through both hosts with exact reconciliation | `PROVEN_PRODUCTION` on 2026-09-14: synthetic governed terminal, four metrics, idempotent replay, exact reconciliation; historical table counts unchanged |
-| 6. Adopt | consumer configurations updated; new campaigns use this route by default | `PENDING` |
+| 6. Adopt | consumer configurations updated; new campaigns use this route by default | `PROVEN_PRODUCTION` for bounded synthetic runs of preprocessor, feature-eng, feature-extractor and predictor; offline DOIN integration remains pending |
+
+The four-consumer production check on 2026-09-14 added twelve reconciled
+terminals and 119 metrics through this host. Existing results were preserved.
+This is transport/mechanics evidence, not a scientific approval.
+[Acceptance and next work](https://github.com/harveybc/predictor/blob/master/docs/handoffs/MUSASHI_SYNTHETIC_CATALOG_AND_FOUR_CONSUMERS_ACCEPTANCE_2026_09_14.md).
 
 ## Requirements this host must satisfy
 
