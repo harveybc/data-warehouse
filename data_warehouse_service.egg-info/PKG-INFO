@@ -1,0 +1,9 @@
+Metadata-Version: 2.4
+Name: data-warehouse-service
+Version: 0.1.0
+Summary: Reusable warehouse host: HTTP contract, configuration and backend interface
+Requires-Python: >=3.10
+Requires-Dist: flask>=3.0
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary

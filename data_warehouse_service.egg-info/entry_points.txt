@@ -1,0 +1,2 @@
+[console_scripts]
+data-warehouse = data_warehouse_service.main:main
