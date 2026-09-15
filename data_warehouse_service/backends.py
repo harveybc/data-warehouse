@@ -19,6 +19,11 @@ CAPABILITIES = (
     "write_metrics",     # append a governed report
     "write_terminal",    # append a governed terminal
     "terminal_digests",  # what terminals a campaign already stored
+    # S2: retaining the availability contract a delivery references, and resolving it back.
+    # A store that does not declare these is unaffected: its deliveries resolve as UNRESOLVED
+    # rather than acquiring a guessed use class.
+    "write_availability_contracts",
+    "resolve_delivery_availability",
 )
 
 

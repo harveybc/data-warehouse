@@ -160,6 +160,33 @@ def create_app(config: dict, backend, identity: dict | None = None) -> Flask:
             return jsonify({"error": f"database error: {exc}"}), 503
         return jsonify(result), (201 if result.get("stored") else 200)
 
+    @app.post("/api/v2/availability-contracts")
+    def api_availability_contracts():
+        """Retain the availability contracts a terminal's deliveries reference.
+
+        Deliberately a SEPARATE call from the terminal: a terminal's digest is taken over its
+        own body, and adding a field there would change the identity of every receipt. The
+        contracts are keyed by their own digest, so ordering does not matter and a repeat is
+        a no-op. Authority is the same as writing a terminal; this adds no new verb.
+        """
+        denied = _auth()
+        if denied:
+            return denied
+        denied = _needs("write_terminal")
+        if denied:
+            return denied
+        if not hasattr(backend, "write_availability_contracts"):
+            return jsonify({"error": "this store does not retain availability contracts"}), 422
+        body = request.get_json(silent=True)
+        contracts = body.get("contracts") if isinstance(body, dict) else body
+        try:
+            result = backend.write_availability_contracts(contracts)
+        except ValueError as exc:
+            return jsonify({"error": str(exc)}), 400
+        except Exception as exc:
+            return jsonify({"error": f"database error: {exc}"}), 503
+        return jsonify(result), (201 if result.get("stored") else 200)
+
     @app.get("/api/v1/download")
     @app.get("/api/v2/download")
     def api_download():
