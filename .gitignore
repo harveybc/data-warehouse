@@ -1,7 +1,7 @@
-__pycache__/
-*.py[cod]
-*.egg-info/
 build/
 dist/
+*.egg-info/
+__pycache__/
+*.py[cod]
 var/
 .venv/
