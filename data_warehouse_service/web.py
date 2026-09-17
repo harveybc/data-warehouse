@@ -16,7 +16,8 @@ from flask import Flask, jsonify, render_template, request
 
 from .auth import check_bearer, load_token
 from .operator_config import editable_config, pending_config, write_pending
-from .errors import HoldoutError, StorageUnreachable, UnsupportedError, WarehouseError
+from .errors import (HoldoutError, StorageUnreachable, UnsupportedError, WarehouseError,
+                     bounded, classify)
 
 
 def create_app(config: dict, backend, identity: dict | None = None) -> Flask:
@@ -33,6 +34,14 @@ def create_app(config: dict, backend, identity: dict | None = None) -> Flask:
         if check_bearer(request.headers.get("Authorization"), load_token(config)):
             return None
         return jsonify({"error": "unauthenticated"}), 401
+
+    def _answer(exc, **extra):
+        """One answer per exception class: 400/422 typed refusal, 503 real unavailability,
+        500 an internal defect named as such and logged; the message is bounded and clean."""
+        status, klass, message = classify(exc)
+        if status == 500:
+            app.logger.exception("internal defect while serving %s", request.path)
+        return jsonify({"error": bounded(message), "class": klass, **extra}), status
 
     def _needs(capability):
         if capability in capabilities:
@@ -80,8 +89,8 @@ def create_app(config: dict, backend, identity: dict | None = None) -> Flask:
             return jsonify({"resources": backend.discover()})
         except StorageUnreachable as exc:
             return jsonify({"error": str(exc), "resources": []}), 503
-        except Exception as exc:  # the store answered, badly: still not a refusal
-            return jsonify({"error": str(exc), "resources": []}), 503
+        except Exception as exc:  # the store answered, badly: named, never disguised
+            return _answer(exc, resources=[])
 
     @app.get("/api/v1/schema")
     def api_schema():
@@ -126,7 +135,7 @@ def create_app(config: dict, backend, identity: dict | None = None) -> Flask:
         except ValueError as exc:
             return jsonify({"error": str(exc)}), 400
         except Exception as exc:
-            return jsonify({"error": f"database error: {exc}"}), 503
+            return _answer(exc)
         result["report_sha256"] = report.get("report_sha256")
         return jsonify(result), (201 if result.get("stored") else 200)
 
@@ -145,7 +154,7 @@ def create_app(config: dict, backend, identity: dict | None = None) -> Flask:
             except ValueError as exc:
                 return jsonify({"error": str(exc)}), 400
             except Exception as exc:
-                return jsonify({"error": f"database error: {exc}"}), 503
+                return _answer(exc)
         denied = _needs("write_terminal")
         if denied:
             return denied
@@ -157,7 +166,7 @@ def create_app(config: dict, backend, identity: dict | None = None) -> Flask:
         except ValueError as exc:
             return jsonify({"error": str(exc)}), 400
         except Exception as exc:
-            return jsonify({"error": f"database error: {exc}"}), 503
+            return _answer(exc)
         return jsonify(result), (201 if result.get("stored") else 200)
 
     @app.post("/api/v2/availability-contracts")
@@ -184,8 +193,32 @@ def create_app(config: dict, backend, identity: dict | None = None) -> Flask:
         except ValueError as exc:
             return jsonify({"error": str(exc)}), 400
         except Exception as exc:
-            return jsonify({"error": f"database error: {exc}"}), 503
+            return _answer(exc)
         return jsonify(result), (201 if result.get("stored") else 200)
+
+    @app.post("/api/v2/foundation-envelopes")
+    def api_foundation_envelopes():
+        """Accept one campaign envelope and let the owner write it.
+
+        The same authority as writing a terminal and no new verb: this is the existing plugin
+        interface carrying an existing document, not a second governance API.
+        """
+        denied = _auth()
+        if denied:
+            return denied
+        denied = _needs("write_terminal")
+        if denied:
+            return denied
+        if not hasattr(backend, "write_foundation_envelope"):
+            return jsonify({"error": "this store does not ingest foundation envelopes"}), 422
+        body = request.get_json(silent=True)
+        document = body.get("document") if isinstance(body, dict) and "document" in body \
+            else body
+        try:
+            result = backend.write_foundation_envelope(document)
+        except Exception as exc:                 # 400 / 422 / 503 / 500, each named
+            return _answer(exc)
+        return jsonify(result), 201
 
     @app.get("/api/v1/download")
     @app.get("/api/v2/download")
