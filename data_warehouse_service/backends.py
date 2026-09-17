@@ -24,6 +24,8 @@ CAPABILITIES = (
     # rather than acquiring a guessed use class.
     "write_availability_contracts",
     "resolve_delivery_availability",
+    # E4: one owned route for data-foundation envelopes, so workers never open the database.
+    "write_foundation_envelope",
 )
 
 
