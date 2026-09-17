@@ -122,6 +122,8 @@ def create_app(config: dict, backend, identity: dict | None = None) -> Flask:
             return jsonify({"error": str(exc)}), 422
         except StorageUnreachable as exc:
             return jsonify({"error": str(exc)}), 503
+        except Exception as exc:                 # the client's SQL (400), an outage (503) or
+            return _answer(exc)                  # our defect (500): never an HTML page
 
     @app.post("/api/v1/metrics")
     def api_metrics():

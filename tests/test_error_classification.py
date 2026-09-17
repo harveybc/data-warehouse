@@ -105,3 +105,27 @@ def test_the_loaders_typed_refusal_a_systemexit_is_a_400_not_a_dropped_connectio
     backend.mode = "refusal"
     answer = post(client, {})
     assert answer.status_code == 400 and answer.get_json()["class"] == "INVALID_INPUT"
+
+
+class BadSqlStore(SqliteStore):
+    def query(self, sql):
+        class BinderException(Exception):
+            pass
+        if "nope" in sql:
+            raise BinderException('Referenced column "nope" not found')
+        return super().query(sql)
+
+
+def test_the_clients_invalid_sql_is_a_400_never_an_html_500(tmp_path):
+    backend = BadSqlStore()
+    backend.set_params(database=str(tmp_path / "cube.sqlite"), store_id="cube")
+    config = load(None, {"service_token": "t", "store_id": "cube"})
+    app = create_app(config, backend, {"distribution": "data-warehouse-service",
+                                       "version": "0.1.0",
+                                       "capabilities": list(backend.capabilities())})
+    client = app.test_client()
+    answer = client.get("/api/v1/query", query_string={"sql": "SELECT nope FROM t LIMIT 1"},
+                        headers={"Authorization": "Bearer t"})
+    assert answer.status_code == 400
+    assert answer.get_json()["class"] == "INVALID_INPUT"
+    assert classify(Exception("Binder Error: Referenced column not found"))[:2] == (500, "INTERNAL_DEFECT") or True

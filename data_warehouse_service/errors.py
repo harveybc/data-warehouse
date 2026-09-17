@@ -45,10 +45,17 @@ _TRANSIENT_HINTS = ("could not connect", "connection refused", "lock", "locked",
                     "conflicting lock")
 
 
+#: exception class names a client's own SQL provokes: the query, not the store, is wrong
+_CLIENT_SQL_NAMES = ("ParserException", "BinderException", "CatalogException",
+                     "ConversionException", "InvalidInputException", "ProgrammingError",
+                     "SyntaxError", "OutOfRangeException")
+
+
 def classify(exc: BaseException) -> tuple:
     """(status, class, message) for an exception raised while serving a write or a read.
 
-    400 INVALID_INPUT      ValueError / SystemExit: the document was looked at and refused
+    400 INVALID_INPUT      ValueError / SystemExit / the client's own SQL errors (parser,
+                           binder, catalog): the input was looked at and refused
     422 UNSUPPORTED        UnsupportedError / BackendRefusal / HoldoutError / PermissionError
     503 STORE_UNAVAILABLE  StorageUnreachable, driver connection/lock/timeout errors
     500 INTERNAL_DEFECT    anything else: a programming defect, named, never disguised
@@ -61,6 +68,8 @@ def classify(exc: BaseException) -> tuple:
         return 503, "STORE_UNAVAILABLE", str(exc)
     name = type(exc).__name__
     text = str(exc).lower()
+    if name in _CLIENT_SQL_NAMES or any(n.lower() in text for n in _CLIENT_SQL_NAMES):
+        return 400, "INVALID_INPUT", f"{name}: {exc}"
     if name in _TRANSIENT_NAMES or any(h in text for h in _TRANSIENT_HINTS):
         return 503, "STORE_UNAVAILABLE", f"{name}: {exc}"
     return 500, "INTERNAL_DEFECT", f"{name}: {exc}"
