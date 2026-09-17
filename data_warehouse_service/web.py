@@ -10,6 +10,7 @@ cannot be reached is 503 — never a refusal attributed to the store.
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 from flask import Flask, jsonify, render_template, request
@@ -215,9 +216,14 @@ def create_app(config: dict, backend, identity: dict | None = None) -> Flask:
         document = body.get("document") if isinstance(body, dict) and "document" in body \
             else body
         try:
+            marker = os.environ.get("DW_INDUCE_INTERNAL_DEFECT")
+            if marker and Path(marker).is_file():
+                # a test hook, off unless the environment names a marker file that exists:
+                # lets a disposable stack prove that an internal defect answers 500, never 503
+                raise RuntimeError("induced internal defect (DW_INDUCE_INTERNAL_DEFECT)")
             result = backend.write_foundation_envelope(document)
-        except Exception as exc:                 # 400 / 422 / 503 / 500, each named
-            return _answer(exc)
+        except (Exception, SystemExit) as exc:   # 400 / 422 / 503 / 500, each named;
+            return _answer(exc)                  # SystemExit is the loader's typed refusal
         return jsonify(result), 201
 
     @app.get("/api/v1/download")

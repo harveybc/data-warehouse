@@ -22,6 +22,8 @@ class Faulty(SqliteStore):
     def write_foundation_envelope(self, document):
         if self.mode == "invalid":
             raise ValueError("data_consumed.datasets[0] must be an object")
+        if self.mode == "refusal":
+            raise SystemExit("REFUSED: data_consumed.datasets[0] must be an object")
         if self.mode == "defect":
             return document["data_consumed"]["datasets"][0].get("id")   # AttributeError on str
         if self.mode == "unreachable":
@@ -96,3 +98,10 @@ def test_a_diagnosis_never_leaks_a_secret(faulty):
     answer = post(client, {})
     assert answer.status_code == 500
     assert "abcdefghijklmnopqrstuvwxyz" not in answer.get_json()["error"]
+
+
+def test_the_loaders_typed_refusal_a_systemexit_is_a_400_not_a_dropped_connection(faulty):
+    backend, client = faulty
+    backend.mode = "refusal"
+    answer = post(client, {})
+    assert answer.status_code == 400 and answer.get_json()["class"] == "INVALID_INPUT"
