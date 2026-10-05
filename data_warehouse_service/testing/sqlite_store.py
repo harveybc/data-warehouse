@@ -14,6 +14,10 @@ import threading
 from ..backends import WarehouseBackendBase
 from ..errors import StorageUnreachable
 from ..feature_selection import ROW_FAMILIES, canonical_json, digest, row_identity, validate_envelope
+from ..feature_selection_reconciliation import (
+    reconciliation_response,
+    validate_reconciliation_request,
+)
 
 FORBIDDEN = ("insert", "update", "delete", "drop", "alter", "truncate", "create", "grant", "copy")
 
@@ -21,7 +25,7 @@ FORBIDDEN = ("insert", "update", "delete", "drop", "alter", "truncate", "create"
 class SqliteStore(WarehouseBackendBase):
     declared_capabilities = ("describe", "storage", "discover", "schema", "query",
                              "write_metrics", "write_terminal", "terminal_digests",
-                             "write_feature_selection_envelope")
+                             "write_feature_selection_envelope", "reconcile_feature_selection")
     backend_params = {"store_id": "sqlite", "database": ":memory:", "max_rows": 10000}
 
     def __init__(self):
@@ -41,6 +45,16 @@ class SqliteStore(WarehouseBackendBase):
                 raise StorageUnreachable(str(exc)) from exc
             self._connection.row_factory = sqlite3.Row
             self._connection.executescript(_SCHEMA)
+            columns = {
+                row["name"] for row in self._connection.execute(
+                    "PRAGMA table_info(df_fact_feature_selection_load_receipt)"
+                ).fetchall()
+            }
+            if "feature_ids_json" not in columns:
+                self._connection.execute(
+                    "ALTER TABLE df_fact_feature_selection_load_receipt "
+                    "ADD COLUMN feature_ids_json TEXT"
+                )
             self._connection.commit()
         return self._connection
 
@@ -147,12 +161,17 @@ class SqliteStore(WarehouseBackendBase):
                     for row in document["rows"][family]:
                         self._insert_feature_row(db, run["run_id"], family, row)
                 row_count = sum(len(document["rows"][name]) for name in ROW_FAMILIES)
+                feature_ids = sorted({
+                    row["feature_id"]
+                    for family in ROW_FAMILIES
+                    for row in document["rows"][family]
+                })
                 db.execute(
                     "INSERT INTO df_fact_feature_selection_load_receipt "
-                    "(envelope_sha256, run_id, schema_version, row_count, body_sha256) "
-                    "VALUES (?, ?, ?, ?, ?)",
+                    "(envelope_sha256, run_id, schema_version, row_count, body_sha256, "
+                    "feature_ids_json) VALUES (?, ?, ?, ?, ?, ?)",
                     (envelope_sha256, run["run_id"], document["schema_version"], row_count,
-                     digest(document)),
+                     digest(document), canonical_json(feature_ids)),
                 )
                 db.commit()
             except Exception:
@@ -160,6 +179,43 @@ class SqliteStore(WarehouseBackendBase):
                 raise
         return {"stored": True, "already_stored": False,
                 "envelope_sha256": envelope_sha256, "row_count": row_count}
+
+    def reconcile_feature_selection(self, request: dict):
+        """Verify every expected envelope against owner-retained receipt metadata."""
+        request = validate_reconciliation_request(request)
+        db = self._db()
+        observed = []
+        missing = []
+        contradictions = []
+        for identity in request["identities"]:
+            if identity["terminal_state"] == "UNAVAILABLE":
+                observed.append(identity)
+                continue
+            row = db.execute(
+                "SELECT feature_ids_json FROM df_fact_feature_selection_load_receipt "
+                "WHERE envelope_sha256 = ?",
+                (identity["envelope_sha256"],),
+            ).fetchone()
+            if row is None:
+                missing.append(identity["feature_id"])
+                continue
+            feature_ids = json.loads(row["feature_ids_json"] or "[]")
+            if identity["feature_id"] not in feature_ids:
+                contradictions.append(identity["feature_id"])
+                continue
+            observed.append(identity)
+        if missing:
+            raise ValueError(
+                f"incomplete warehouse population; missing envelopes for {sorted(missing)}"
+            )
+        if contradictions:
+            raise ValueError(
+                "warehouse population contradiction; claimed feature is absent from its "
+                f"envelope: {sorted(contradictions)}"
+            )
+        if len(observed) != request["expected_count"]:
+            raise ValueError("incomplete warehouse population after reconciliation")
+        return reconciliation_response(request, observed)
 
     @staticmethod
     def _insert_run(db, run):
@@ -369,6 +425,7 @@ CREATE TABLE IF NOT EXISTS df_fact_feature_selection_load_receipt (
     schema_version TEXT NOT NULL,
     row_count INTEGER NOT NULL,
     body_sha256 TEXT NOT NULL,
+    feature_ids_json TEXT,
     stored_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 

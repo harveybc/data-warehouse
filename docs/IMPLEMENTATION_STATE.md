@@ -15,7 +15,7 @@ States: `PENDING` | `IMPLEMENTED` | `PROVEN_DISPOSABLE` | `PUBLISHED` | `DEPLOYE
 | 4. Interface | AdminLTE configuration and inventory views, relation schema, bounded query, desktop and mobile | `PROVEN_DISPOSABLE` — `tests/test_console.py` (10) and `tools/console_screenshots.py`: eight pages driven in a real browser at 1440×900 and 390×844, every asset served by this host, zero horizontal overflow; receipt and PNGs in `docs/console/` |
 | 5. Put into use | controlled transition over the same data and IDs; governed micro-run through both hosts with exact reconciliation | `PROVEN_PRODUCTION` on 2026-09-14: synthetic governed terminal, four metrics, idempotent replay, exact reconciliation; historical table counts unchanged |
 | 6. Adopt | consumer configurations updated; new campaigns use this route by default | `PROVEN_PRODUCTION` for bounded synthetic runs of preprocessor, feature-eng, feature-extractor and predictor; offline DOIN integration remains pending |
-| 7. Phase-1 feature selection | authenticated owner-process ingestion, immutable facts, atomic replay/contradiction semantics and read-only operational views | `PROVEN_DISPOSABLE`; production DuckDB provider adoption and verified snapshot accounting remain pending in the provider repository |
+| 7. Phase-1 feature selection | authenticated owner-process ingestion and reconciliation, immutable facts, atomic replay/contradiction semantics and read-only operational views | `PROVEN_DISPOSABLE`; production DuckDB provider adoption and verified snapshot accounting remain pending in the provider repository |
 
 The four-consumer production check on 2026-09-14 added twelve reconciled
 terminals and 119 metrics through this host. Existing results were preserved.
@@ -36,6 +36,9 @@ This is transport/mechanics evidence, not a scientific approval.
 6. Accept `feature_selection_envelope.v1` only through a backend that explicitly declares
    `write_feature_selection_envelope`; atomically retain six normalized fact families and a
    load receipt, with content-derived row identities and contradiction rejection.
+7. Reconcile `phase1.warehouse_reconciliation_request.v1` only through a backend declaring
+   `reconcile_feature_selection`; verify every completed feature against its retained envelope
+   and return one canonical, request-bound complete-population response.
 
 ## Acceptance scenarios
 
@@ -57,6 +60,8 @@ This is transport/mechanics evidence, not a scientific approval.
 | identical feature-selection envelope replay | 200 `already_stored`, no duplicate fact or receipt |
 | same feature-selection identity with changed content | 400 and no rows from the rejected envelope |
 | worker attempts direct database access | unsupported by this host; ingestion exists only on the authenticated owner route |
+| reconciliation request has a duplicate, missing envelope or mismatched feature | 400; no partial reconciliation is returned |
+| complete authenticated feature-selection population | 200 `RECONCILED` with observed identity set/count and canonical digest |
 
 ## Test matrix
 
@@ -69,3 +74,4 @@ This is transport/mechanics evidence, not a scientific approval.
 | parity | `tools/compare_with_legacy_host.py` | the legacy adapter and this host answer identically on the same fixture |
 | end to end | `data-gov/tools/verify_flow_v3_e2e.py --new-warehouse-python …` | a full governed campaign through this host |
 | feature selection | `tests/test_feature_selection_ingestion.py` | envelope validation, all-family atomicity, replay, contradiction rollback and read-only views |
+| feature selection reconciliation | `tests/test_feature_selection_reconciliation.py` | auth/capability gates, request identities, backend readback, completeness, contradiction rejection and predictor-compatible response |

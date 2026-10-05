@@ -10,3 +10,8 @@
 | FSWH-06 | `test_dashboard_coverage_and_failure_views_are_read_only_and_queryable` | disposable provider views |
 | FSWH-07 | document inspection | provider integration boundary in `REQUIREMENTS.md` |
 | FSWH-08 | full test command and packaging test | temporary SQLite fixtures only |
+| FSWH-09 | `test_reconciliation_requires_auth_and_an_explicit_capability` | authenticated route and backend capability vocabulary |
+| FSWH-10 | `test_invalid_or_duplicate_expected_populations_are_rejected` | `validate_reconciliation_request` |
+| FSWH-11 | missing-envelope and feature-contradiction tests | `SqliteStore.reconcile_feature_selection` |
+| FSWH-12 | `test_reconciliation_queries_the_store_and_binds_the_complete_request` | `reconciliation_response` |
+| FSWH-13 | `test_unavailable_terminal_is_bound_without_claiming_a_stored_envelope` | explicit no-payload reconciliation branch |

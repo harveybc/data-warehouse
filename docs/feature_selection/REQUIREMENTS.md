@@ -18,6 +18,11 @@ producer submits one `feature_selection_envelope.v1` document to the owner proce
 | FSWH-06 | Read-only relations expose profile facts, causal evidence, decisions, per-feature coverage, failures and a run dashboard. |
 | FSWH-07 | The production provider owns its DuckDB schema, transaction and verified snapshot. This host owns only the capability and HTTP contract. |
 | FSWH-08 | Tests use only the disposable SQLite provider and never open or mutate the live warehouse. |
+| FSWH-09 | `POST /api/v2/feature-selection-reconcile` requires the service token and the explicit `reconcile_feature_selection` capability. |
+| FSWH-10 | A `phase1.warehouse_reconciliation_request.v1` binds a positive expected count, one unique identity per feature, the plan, population, authentication profile and canonical request/identity digest. |
+| FSWH-11 | Reconciliation queries owner-retained envelope receipts; a missing envelope or a feature absent from its claimed envelope rejects the population. |
+| FSWH-12 | A successful `phase1.warehouse_reconciliation.v1` binds every request field, the observed identities/count/digest, completeness and contradictions under `reconciliation_sha256`. |
+| FSWH-13 | An `UNAVAILABLE` terminal may carry no envelope or receipt; it remains request-bound and is never presented as an independently stored warehouse payload. |
 
 ## Envelope
 
@@ -63,3 +68,22 @@ A production backend must:
 
 The DuckDB provider and its snapshot implementation live in `predictor/olap/store` and
 `predictor/tools/olap_duckdb_migrate.py`; they are intentionally not modified by this change.
+
+## Authenticated reconciliation
+
+The predictor orchestrator posts `phase1.warehouse_reconciliation_request.v1` directly to
+`POST /api/v2/feature-selection-reconcile`. The host authenticates the HTTP request, validates
+all identities and digest claims, then delegates to `reconcile_feature_selection(request)`.
+
+The backend must query retained feature-selection load receipts. For each `COMPLETED` identity,
+the named envelope must exist and its retained feature set must contain the named feature. A
+missing envelope is incomplete evidence; a mismatched feature is contradictory evidence. Both
+are refusals, not partially successful reconciliations. `UNAVAILABLE` identities have no
+warehouse payload and are bound from the authenticated request without claiming independent
+warehouse observation.
+
+A successful response has schema `phase1.warehouse_reconciliation.v1`, state `RECONCILED`, all
+request identity fields, `observed_count`, `observed_identities`,
+`observed_identities_sha256`, `complete: true`, an empty `contradictions` list and a canonical
+`reconciliation_sha256`. Production providers must declare `reconcile_feature_selection` and
+implement this same behavior before the orchestrator can open its phase-2 gate.

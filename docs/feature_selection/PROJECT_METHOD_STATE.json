@@ -1,5 +1,5 @@
 {
-  "initiative": "phase-1-feature-selection-warehouse-ingestion",
+  "initiative": "phase-1-feature-selection-warehouse-ingestion-and-reconciliation",
   "method": "test-led-data-centric-development",
   "current_stage": "S14_RELEASE_OPERATION",
   "stages": {
@@ -24,7 +24,7 @@
   "next_allowed_actions": [
     "run the complete repository suite",
     "verify a clean built wheel in isolation",
-    "integrate the contract in predictor-olap-store in its own repository"
+    "integrate envelope ingestion and reconciliation in predictor-olap-store in its own repository"
   ],
   "blocked_actions": [
     "restart the live warehouse",
@@ -33,7 +33,7 @@
   ],
   "evidence": {
     "command": "python -m pytest tests -q",
-    "result": "55 passed",
+    "result": "68 passed; focused reconciliation plus ingestion suite 29 passed; clean-wheel test 2 passed",
     "static_checks": "python -m compileall -q data_warehouse_service tests; git diff --check"
   }
 }

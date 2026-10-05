@@ -17,6 +17,7 @@ from flask import Flask, jsonify, render_template, request
 
 from .auth import check_bearer, load_token
 from .feature_selection import validate_envelope
+from .feature_selection_reconciliation import validate_reconciliation_request
 from .operator_config import editable_config, pending_config, write_pending
 from .errors import (HoldoutError, StorageUnreachable, UnsupportedError, WarehouseError,
                      bounded, classify)
@@ -243,6 +244,19 @@ def create_app(config: dict, backend, identity: dict | None = None) -> Flask:
         except (Exception, SystemExit) as exc:
             return _answer(exc)
         return jsonify(result), (201 if result.get("stored") else 200)
+
+    @app.post("/api/v2/feature-selection-reconcile")
+    def api_feature_selection_reconcile():
+        """Authenticate and verify the complete phase-1 identity population."""
+        denied = _auth() or _needs("reconcile_feature_selection")
+        if denied:
+            return denied
+        try:
+            document = validate_reconciliation_request(request.get_json(silent=True))
+            result = backend.reconcile_feature_selection(document)
+        except (Exception, SystemExit) as exc:
+            return _answer(exc)
+        return jsonify(result), 200
 
     @app.get("/api/v1/download")
     @app.get("/api/v2/download")

@@ -29,6 +29,8 @@ CAPABILITIES = (
     # Phase-1 feature-selection facts. The owner process performs one atomic ingest;
     # workers never receive a database path or connection.
     "write_feature_selection_envelope",
+    # Authenticated readback of the complete phase-1 identity population.
+    "reconcile_feature_selection",
 )
 
 
@@ -41,6 +43,8 @@ class WarehouseBackend(Protocol):
     def describe(self) -> dict: ...
 
     def write_feature_selection_envelope(self, document: dict) -> dict: ...
+
+    def reconcile_feature_selection(self, request: dict) -> dict: ...
 
 
 class WarehouseBackendBase:
@@ -93,6 +97,9 @@ class WarehouseBackendBase:
 
     def write_feature_selection_envelope(self, document: dict):
         self._refuse("write_feature_selection_envelope")
+
+    def reconcile_feature_selection(self, request: dict):
+        self._refuse("reconcile_feature_selection")
 
 
 def check_capabilities(declared) -> tuple:
