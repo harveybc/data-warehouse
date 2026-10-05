@@ -15,6 +15,7 @@ States: `PENDING` | `IMPLEMENTED` | `PROVEN_DISPOSABLE` | `PUBLISHED` | `DEPLOYE
 | 4. Interface | AdminLTE configuration and inventory views, relation schema, bounded query, desktop and mobile | `PROVEN_DISPOSABLE` — `tests/test_console.py` (10) and `tools/console_screenshots.py`: eight pages driven in a real browser at 1440×900 and 390×844, every asset served by this host, zero horizontal overflow; receipt and PNGs in `docs/console/` |
 | 5. Put into use | controlled transition over the same data and IDs; governed micro-run through both hosts with exact reconciliation | `PROVEN_PRODUCTION` on 2026-09-14: synthetic governed terminal, four metrics, idempotent replay, exact reconciliation; historical table counts unchanged |
 | 6. Adopt | consumer configurations updated; new campaigns use this route by default | `PROVEN_PRODUCTION` for bounded synthetic runs of preprocessor, feature-eng, feature-extractor and predictor; offline DOIN integration remains pending |
+| 7. Phase-1 feature selection | authenticated owner-process ingestion, immutable facts, atomic replay/contradiction semantics and read-only operational views | `PROVEN_DISPOSABLE`; production DuckDB provider adoption and verified snapshot accounting remain pending in the provider repository |
 
 The four-consumer production check on 2026-09-14 added twelve reconciled
 terminals and 119 metrics through this host. Existing results were preserved.
@@ -32,6 +33,9 @@ This is transport/mechanics evidence, not a scientific approval.
 4. Map a provider's refusal to the status the kernel already maps, and re-raise anything it
    cannot classify.
 5. Hold no dataset knowledge: everything data-specific travels in `backend.settings`.
+6. Accept `feature_selection_envelope.v1` only through a backend that explicitly declares
+   `write_feature_selection_envelope`; atomically retain six normalized fact families and a
+   load receipt, with content-derived row identities and contradiction rejection.
 
 ## Acceptance scenarios
 
@@ -50,6 +54,9 @@ This is transport/mechanics evidence, not a scientific approval.
 | console shows a secret | never; a redacted value cannot be saved back |
 | two distributions registering the same entry point | startup refusal naming both |
 | configured distribution not the owner of the entry point | startup refusal naming the real owner |
+| identical feature-selection envelope replay | 200 `already_stored`, no duplicate fact or receipt |
+| same feature-selection identity with changed content | 400 and no rows from the rejected envelope |
+| worker attempts direct database access | unsupported by this host; ingestion exists only on the authenticated owner route |
 
 ## Test matrix
 
@@ -61,3 +68,4 @@ This is transport/mechanics evidence, not a scientific approval.
 | browser | `tools/console_screenshots.py` | desktop and mobile rendering, local assets only, no horizontal overflow |
 | parity | `tools/compare_with_legacy_host.py` | the legacy adapter and this host answer identically on the same fixture |
 | end to end | `data-gov/tools/verify_flow_v3_e2e.py --new-warehouse-python …` | a full governed campaign through this host |
+| feature selection | `tests/test_feature_selection_ingestion.py` | envelope validation, all-family atomicity, replay, contradiction rollback and read-only views |

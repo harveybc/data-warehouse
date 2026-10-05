@@ -57,7 +57,10 @@ def test_only_read_only_sql_is_served(client):
 
 def test_discover_and_schema(client):
     resources = client.get("/api/v1/discover", headers=auth()).get_json()["resources"]
-    assert {r["resource_id"] for r in resources} == {"gov_metric", "gov_terminal"}
+    resource_ids = {r["resource_id"] for r in resources}
+    assert {"gov_metric", "gov_terminal"}.issubset(resource_ids)
+    assert {"df_feature_selection_dashboard", "df_feature_selection_coverage",
+            "df_feature_selection_failures"}.issubset(resource_ids)
     columns = client.get("/api/v1/schema?relation=gov_terminal", headers=auth()).get_json()["columns"]
     assert [c["name"] for c in columns] == ["terminal_sha256", "campaign_sha256", "body"]
     assert client.get("/api/v1/schema?relation=absent", headers=auth()).status_code == 404

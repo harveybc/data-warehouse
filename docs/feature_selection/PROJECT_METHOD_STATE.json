@@ -1,0 +1,39 @@
+{
+  "initiative": "phase-1-feature-selection-warehouse-ingestion",
+  "method": "test-led-data-centric-development",
+  "current_stage": "S14_RELEASE_OPERATION",
+  "stages": {
+    "S0_DISCOVERY": "PASSED",
+    "S1_REQUIREMENTS": "PASSED",
+    "S2_USE_CASES": "PASSED",
+    "S3_ACCEPTANCE_TEST_DESIGN": "PASSED",
+    "S4_ARCHITECTURE": "PASSED",
+    "S5_SYSTEM_TEST_DESIGN": "PASSED",
+    "S6_COMPONENT_DESIGN": "PASSED",
+    "S7_INTEGRATION_TEST_DESIGN": "PASSED",
+    "S8_UNIT_TEST_DESIGN": "PASSED",
+    "S9_UNIT_IMPLEMENTATION": "PASSED",
+    "S10_INTEGRATION_VERIFICATION": "PASSED",
+    "S11_SYSTEM_VERIFICATION": "PASSED",
+    "S12_ALPHA_ACCEPTANCE": "PASSED",
+    "S13_BETA_ACCEPTANCE": "DEFERRED_OPTIONAL",
+    "S14_RELEASE_OPERATION": "NOT_STARTED"
+  },
+  "requirements": "docs/feature_selection/REQUIREMENTS.md",
+  "traceability": "docs/feature_selection/TRACEABILITY.md",
+  "next_allowed_actions": [
+    "run the complete repository suite",
+    "verify a clean built wheel in isolation",
+    "integrate the contract in predictor-olap-store in its own repository"
+  ],
+  "blocked_actions": [
+    "restart the live warehouse",
+    "mutate the live DuckDB",
+    "claim verified snapshot coverage before the provider implements it"
+  ],
+  "evidence": {
+    "command": "python -m pytest tests -q",
+    "result": "55 passed",
+    "static_checks": "python -m compileall -q data_warehouse_service tests; git diff --check"
+  }
+}

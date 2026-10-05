@@ -26,6 +26,9 @@ CAPABILITIES = (
     "resolve_delivery_availability",
     # E4: one owned route for data-foundation envelopes, so workers never open the database.
     "write_foundation_envelope",
+    # Phase-1 feature-selection facts. The owner process performs one atomic ingest;
+    # workers never receive a database path or connection.
+    "write_feature_selection_envelope",
 )
 
 
@@ -36,6 +39,8 @@ class WarehouseBackend(Protocol):
     def set_params(self, **settings) -> None: ...
 
     def describe(self) -> dict: ...
+
+    def write_feature_selection_envelope(self, document: dict) -> dict: ...
 
 
 class WarehouseBackendBase:
@@ -85,6 +90,9 @@ class WarehouseBackendBase:
 
     def terminal_digests(self, campaign_sha256: str):
         self._refuse("terminal_digests")
+
+    def write_feature_selection_envelope(self, document: dict):
+        self._refuse("write_feature_selection_envelope")
 
 
 def check_capabilities(declared) -> tuple:

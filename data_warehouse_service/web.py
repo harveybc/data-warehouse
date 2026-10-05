@@ -16,6 +16,7 @@ from pathlib import Path
 from flask import Flask, jsonify, render_template, request
 
 from .auth import check_bearer, load_token
+from .feature_selection import validate_envelope
 from .operator_config import editable_config, pending_config, write_pending
 from .errors import (HoldoutError, StorageUnreachable, UnsupportedError, WarehouseError,
                      bounded, classify)
@@ -227,6 +228,21 @@ def create_app(config: dict, backend, identity: dict | None = None) -> Flask:
         except (Exception, SystemExit) as exc:   # 400 / 422 / 503 / 500, each named;
             return _answer(exc)                  # SystemExit is the loader's typed refusal
         return jsonify(result), 201
+
+    @app.post("/api/v2/feature-selection-envelopes")
+    def api_feature_selection_envelopes():
+        """Atomically ingest typed phase-1 facts through the database owner."""
+        denied = _auth() or _needs("write_feature_selection_envelope")
+        if denied:
+            return denied
+        body = request.get_json(silent=True)
+        document = body.get("document") if isinstance(body, dict) and "document" in body else body
+        try:
+            document = validate_envelope(document)
+            result = backend.write_feature_selection_envelope(document)
+        except (Exception, SystemExit) as exc:
+            return _answer(exc)
+        return jsonify(result), (201 if result.get("stored") else 200)
 
     @app.get("/api/v1/download")
     @app.get("/api/v2/download")

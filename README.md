@@ -1,7 +1,8 @@
 # data-warehouse
 
 A reusable **warehouse host**: the HTTP contract, the configuration and the provider interface
-for structured stores. It holds no schema, no cube and no governance decision.
+for structured stores. Production schemas remain owned by provider distributions; the bundled
+SQLite provider includes disposable schemas for contract tests.
 
 ```json
 {
@@ -39,6 +40,12 @@ A fresh install can serve something immediately: `examples/config/sqlite_demo.js
   422; an unreachable store is 503, never a refusal attributed to the store.
 * Read-only SQL. The provider decides what a query may do; the host offers no route that
   could truncate anything.
+* Phase-1 feature-selection ingestion through
+  `POST /api/v2/feature-selection-envelopes`. The configured database owner validates and
+  commits every fact family and its receipt atomically; workers never open the database.
+
+The executable envelope rules and the production-provider boundary are documented in
+[docs/feature_selection/REQUIREMENTS.md](docs/feature_selection/REQUIREMENTS.md).
 
 ## Operator console
 

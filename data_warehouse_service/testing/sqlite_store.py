@@ -9,21 +9,25 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
+import threading
 
 from ..backends import WarehouseBackendBase
 from ..errors import StorageUnreachable
+from ..feature_selection import ROW_FAMILIES, canonical_json, digest, row_identity, validate_envelope
 
 FORBIDDEN = ("insert", "update", "delete", "drop", "alter", "truncate", "create", "grant", "copy")
 
 
 class SqliteStore(WarehouseBackendBase):
     declared_capabilities = ("describe", "storage", "discover", "schema", "query",
-                             "write_metrics", "write_terminal", "terminal_digests")
+                             "write_metrics", "write_terminal", "terminal_digests",
+                             "write_feature_selection_envelope")
     backend_params = {"store_id": "sqlite", "database": ":memory:", "max_rows": 10000}
 
     def __init__(self):
         super().__init__()
         self._connection = None
+        self._write_lock = threading.RLock()
 
     def source_identity(self):
         return {"kind": "in_repository", "module": __name__, "distribution": "data-warehouse-service"}
@@ -36,10 +40,7 @@ class SqliteStore(WarehouseBackendBase):
             except sqlite3.Error as exc:
                 raise StorageUnreachable(str(exc)) from exc
             self._connection.row_factory = sqlite3.Row
-            self._connection.executescript(
-                "CREATE TABLE IF NOT EXISTS gov_metric (report_sha256 TEXT PRIMARY KEY, body TEXT NOT NULL);"
-                "CREATE TABLE IF NOT EXISTS gov_terminal (terminal_sha256 TEXT PRIMARY KEY,"
-                " campaign_sha256 TEXT NOT NULL, body TEXT NOT NULL);")
+            self._connection.executescript(_SCHEMA)
             self._connection.commit()
         return self._connection
 
@@ -123,6 +124,313 @@ class SqliteStore(WarehouseBackendBase):
                                   " ORDER BY terminal_sha256", (campaign_sha256,)).fetchall()
         return [r["terminal_sha256"] for r in rows]
 
+    def write_feature_selection_envelope(self, document: dict):
+        """Validate and commit all phase-1 fact families in one owner transaction."""
+        document = validate_envelope(document)
+        run = document["run"]
+        envelope_sha256 = document["envelope_sha256"]
+        db = self._db()
+        with self._write_lock:
+            existing = db.execute(
+                "SELECT 1 FROM df_fact_feature_selection_load_receipt "
+                "WHERE envelope_sha256 = ?", (envelope_sha256,),
+            ).fetchone()
+            if existing:
+                return {"stored": False, "already_stored": True,
+                        "envelope_sha256": envelope_sha256,
+                        "row_count": sum(len(document["rows"][name]) for name in ROW_FAMILIES)}
+
+            try:
+                db.execute("BEGIN IMMEDIATE")
+                self._insert_run(db, run)
+                for family in ROW_FAMILIES:
+                    for row in document["rows"][family]:
+                        self._insert_feature_row(db, run["run_id"], family, row)
+                row_count = sum(len(document["rows"][name]) for name in ROW_FAMILIES)
+                db.execute(
+                    "INSERT INTO df_fact_feature_selection_load_receipt "
+                    "(envelope_sha256, run_id, schema_version, row_count, body_sha256) "
+                    "VALUES (?, ?, ?, ?, ?)",
+                    (envelope_sha256, run["run_id"], document["schema_version"], row_count,
+                     digest(document)),
+                )
+                db.commit()
+            except Exception:
+                db.rollback()
+                raise
+        return {"stored": True, "already_stored": False,
+                "envelope_sha256": envelope_sha256, "row_count": row_count}
+
+    @staticmethod
+    def _insert_run(db, run):
+        run_sha256 = digest(run)
+        existing = db.execute(
+            "SELECT run_sha256 FROM df_dim_feature_selection_run WHERE run_id = ?",
+            (run["run_id"],),
+        ).fetchone()
+        if existing:
+            if existing["run_sha256"] != run_sha256:
+                raise ValueError(f"run_id {run['run_id']!r} contradicts its stored identity")
+            return
+        db.execute(
+            "INSERT INTO df_dim_feature_selection_run "
+            "(run_id, run_sha256, campaign_sha256, code_sha256, input_sha256, "
+            "inventory_sha256, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (run["run_id"], run_sha256, run["campaign_sha256"], run["code_sha256"],
+             run["input_sha256"], run["inventory_sha256"], run["created_at"]),
+        )
+
+    @staticmethod
+    def _insert_feature_row(db, run_id, family, row):
+        table = _FAMILY_TABLES[family]
+        identity = row_identity(run_id, family, row)
+        existing = db.execute(
+            f"SELECT row_sha256 FROM {table} WHERE row_identity_sha256 = ?", (identity,),
+        ).fetchone()
+        if existing:
+            if existing["row_sha256"] != row["row_sha256"]:
+                raise ValueError(
+                    f"{family} identity {identity} contradicts its stored row"
+                )
+            return
+
+        if family in {"sampling_quality", "variable_profiles"}:
+            db.execute(
+                f"INSERT INTO {table} (row_identity_sha256, row_sha256, run_id, feature_id, "
+                "split, metric_name, metric_value, state, unit, population_id, fold) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (identity, row["row_sha256"], run_id, row["feature_id"], row["split"],
+                 row["metric_name"], row.get("metric_value"), row["state"], row.get("unit"),
+                 row.get("population_id"), row.get("fold")),
+            )
+        elif family == "information_metrics":
+            db.execute(
+                f"INSERT INTO {table} (row_identity_sha256, row_sha256, run_id, feature_id, "
+                "target_id, horizon, split, metric_name, metric_value, state, population_id, fold) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (identity, row["row_sha256"], run_id, row["feature_id"], row["target_id"],
+                 row["horizon"], row["split"], row["metric_name"], row.get("metric_value"),
+                 row["state"], row.get("population_id"), row.get("fold")),
+            )
+        elif family == "pair_relations":
+            db.execute(
+                f"INSERT INTO {table} (row_identity_sha256, row_sha256, run_id, feature_id, "
+                "target_id, horizon, split, lag, metric_name, metric_value, state, "
+                "population_id, fold) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (identity, row["row_sha256"], run_id, row["feature_id"], row["target_id"],
+                 row["horizon"], row["split"], row["lag"], row["metric_name"],
+                 row.get("metric_value"), row["state"], row.get("population_id"), row.get("fold")),
+            )
+        elif family == "causal_evidence":
+            db.execute(
+                f"INSERT INTO {table} (row_identity_sha256, row_sha256, run_id, feature_id, "
+                "target_id, horizon, split, rung, estimand, estimator, state, effect, lower_bound, "
+                "upper_bound, support_n, assumptions_json, adjustment_set_json, evidence_sha256, "
+                "population_id, fold) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (identity, row["row_sha256"], run_id, row["feature_id"], row["target_id"],
+                 row["horizon"], row["split"], row["rung"], row["estimand"], row["estimator"],
+                 row["state"], row.get("effect"), row.get("lower"), row.get("upper"),
+                 row["support_n"], canonical_json(row["assumptions"]),
+                 canonical_json(row["adjustment_set"]), row["evidence_sha256"],
+                 row.get("population_id"), row.get("fold")),
+            )
+        else:
+            db.execute(
+                f"INSERT INTO {table} (row_identity_sha256, row_sha256, run_id, feature_id, "
+                "target_id, horizon, method, score, rank, decision, rule, evidence_sha256, "
+                "population_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (identity, row["row_sha256"], run_id, row["feature_id"], row["target_id"],
+                 row["horizon"], row["method"], row.get("score"), row.get("rank"),
+                 row["decision"], row["rule"], row["evidence_sha256"],
+                 row.get("population_id")),
+            )
+
 
 def backend():
     return SqliteStore()
+
+
+_FAMILY_TABLES = {
+    "sampling_quality": "df_fact_sampling_quality",
+    "variable_profiles": "df_fact_variable_profile",
+    "information_metrics": "df_fact_information_metric",
+    "pair_relations": "df_fact_pair_relation",
+    "causal_evidence": "df_fact_feature_causal_evidence",
+    "selection_decisions": "df_fact_feature_selection_decision",
+}
+
+
+_COMMON_PROFILE_COLUMNS = """
+    row_identity_sha256 TEXT PRIMARY KEY,
+    row_sha256 TEXT NOT NULL,
+    run_id TEXT NOT NULL REFERENCES df_dim_feature_selection_run(run_id),
+    feature_id TEXT NOT NULL,
+    split TEXT NOT NULL,
+    metric_name TEXT NOT NULL,
+    metric_value REAL,
+    state TEXT NOT NULL,
+    unit TEXT,
+    population_id TEXT,
+    fold TEXT
+"""
+
+
+_SCHEMA = f"""
+PRAGMA foreign_keys = ON;
+CREATE TABLE IF NOT EXISTS gov_metric (
+    report_sha256 TEXT PRIMARY KEY,
+    body TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS gov_terminal (
+    terminal_sha256 TEXT PRIMARY KEY,
+    campaign_sha256 TEXT NOT NULL,
+    body TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS df_dim_feature_selection_run (
+    run_id TEXT PRIMARY KEY,
+    run_sha256 TEXT NOT NULL UNIQUE,
+    campaign_sha256 TEXT NOT NULL,
+    code_sha256 TEXT NOT NULL,
+    input_sha256 TEXT NOT NULL,
+    inventory_sha256 TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS df_fact_sampling_quality ({_COMMON_PROFILE_COLUMNS});
+CREATE TABLE IF NOT EXISTS df_fact_variable_profile ({_COMMON_PROFILE_COLUMNS});
+CREATE TABLE IF NOT EXISTS df_fact_information_metric (
+    row_identity_sha256 TEXT PRIMARY KEY,
+    row_sha256 TEXT NOT NULL,
+    run_id TEXT NOT NULL REFERENCES df_dim_feature_selection_run(run_id),
+    feature_id TEXT NOT NULL,
+    target_id TEXT NOT NULL,
+    horizon INTEGER NOT NULL,
+    split TEXT NOT NULL,
+    metric_name TEXT NOT NULL,
+    metric_value REAL,
+    state TEXT NOT NULL,
+    population_id TEXT,
+    fold TEXT
+);
+CREATE TABLE IF NOT EXISTS df_fact_pair_relation (
+    row_identity_sha256 TEXT PRIMARY KEY,
+    row_sha256 TEXT NOT NULL,
+    run_id TEXT NOT NULL REFERENCES df_dim_feature_selection_run(run_id),
+    feature_id TEXT NOT NULL,
+    target_id TEXT NOT NULL,
+    horizon INTEGER NOT NULL,
+    split TEXT NOT NULL,
+    lag INTEGER NOT NULL,
+    metric_name TEXT NOT NULL,
+    metric_value REAL,
+    state TEXT NOT NULL,
+    population_id TEXT,
+    fold TEXT
+);
+CREATE TABLE IF NOT EXISTS df_fact_feature_causal_evidence (
+    row_identity_sha256 TEXT PRIMARY KEY,
+    row_sha256 TEXT NOT NULL,
+    run_id TEXT NOT NULL REFERENCES df_dim_feature_selection_run(run_id),
+    feature_id TEXT NOT NULL,
+    target_id TEXT NOT NULL,
+    horizon INTEGER NOT NULL,
+    split TEXT NOT NULL,
+    rung INTEGER NOT NULL CHECK (rung BETWEEN 1 AND 3),
+    estimand TEXT NOT NULL,
+    estimator TEXT NOT NULL,
+    state TEXT NOT NULL,
+    effect REAL,
+    lower_bound REAL,
+    upper_bound REAL,
+    support_n INTEGER NOT NULL,
+    assumptions_json TEXT NOT NULL,
+    adjustment_set_json TEXT NOT NULL,
+    evidence_sha256 TEXT NOT NULL,
+    population_id TEXT,
+    fold TEXT
+);
+CREATE TABLE IF NOT EXISTS df_fact_feature_selection_decision (
+    row_identity_sha256 TEXT PRIMARY KEY,
+    row_sha256 TEXT NOT NULL,
+    run_id TEXT NOT NULL REFERENCES df_dim_feature_selection_run(run_id),
+    feature_id TEXT NOT NULL,
+    target_id TEXT NOT NULL,
+    horizon INTEGER NOT NULL,
+    method TEXT NOT NULL,
+    score REAL,
+    rank INTEGER,
+    decision TEXT NOT NULL CHECK (decision IN ('SELECTED','REJECTED','NEUTRAL','UNAVAILABLE')),
+    rule TEXT NOT NULL,
+    evidence_sha256 TEXT NOT NULL,
+    population_id TEXT
+);
+CREATE TABLE IF NOT EXISTS df_fact_feature_selection_load_receipt (
+    envelope_sha256 TEXT PRIMARY KEY,
+    run_id TEXT NOT NULL REFERENCES df_dim_feature_selection_run(run_id),
+    schema_version TEXT NOT NULL,
+    row_count INTEGER NOT NULL,
+    body_sha256 TEXT NOT NULL,
+    stored_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE VIEW IF NOT EXISTS df_feature_profile_current AS
+SELECT run_id, feature_id, split, metric_name, metric_value, state, 'sampling_quality' AS family,
+       row_sha256
+FROM df_fact_sampling_quality
+UNION ALL
+SELECT run_id, feature_id, split, metric_name, metric_value, state, 'variable_profiles', row_sha256
+FROM df_fact_variable_profile
+UNION ALL
+SELECT run_id, feature_id, split, metric_name, metric_value, state, 'information_metrics', row_sha256
+FROM df_fact_information_metric
+UNION ALL
+SELECT run_id, feature_id, split, metric_name, metric_value, state, 'pair_relations', row_sha256
+FROM df_fact_pair_relation;
+
+CREATE VIEW IF NOT EXISTS df_feature_causal_ladder_current AS
+SELECT * FROM df_fact_feature_causal_evidence;
+CREATE VIEW IF NOT EXISTS df_feature_selection_current AS
+SELECT * FROM df_fact_feature_selection_decision;
+
+CREATE VIEW IF NOT EXISTS df_feature_selection_coverage AS
+WITH profile AS (
+    SELECT run_id, feature_id, count(*) AS profile_rows FROM df_feature_profile_current
+    GROUP BY run_id, feature_id
+), causal AS (
+    SELECT run_id, feature_id, count(*) AS causal_rows FROM df_fact_feature_causal_evidence
+    GROUP BY run_id, feature_id
+), decisions AS (
+    SELECT run_id, feature_id, count(*) AS decision_rows FROM df_fact_feature_selection_decision
+    GROUP BY run_id, feature_id
+), features AS (
+    SELECT run_id, feature_id FROM profile UNION SELECT run_id, feature_id FROM causal
+    UNION SELECT run_id, feature_id FROM decisions
+)
+SELECT f.run_id, f.feature_id, coalesce(p.profile_rows, 0) AS profile_rows,
+       coalesce(c.causal_rows, 0) AS causal_rows,
+       coalesce(d.decision_rows, 0) AS decision_rows
+FROM features f LEFT JOIN profile p USING (run_id, feature_id)
+LEFT JOIN causal c USING (run_id, feature_id)
+LEFT JOIN decisions d USING (run_id, feature_id);
+
+CREATE VIEW IF NOT EXISTS df_feature_selection_failures AS
+SELECT run_id, 'sampling_quality' AS family, feature_id, state, row_sha256
+FROM df_fact_sampling_quality WHERE state IN ('FAILED','ERROR','INVALID')
+UNION ALL SELECT run_id, 'variable_profiles', feature_id, state, row_sha256
+FROM df_fact_variable_profile WHERE state IN ('FAILED','ERROR','INVALID')
+UNION ALL SELECT run_id, 'information_metrics', feature_id, state, row_sha256
+FROM df_fact_information_metric WHERE state IN ('FAILED','ERROR','INVALID')
+UNION ALL SELECT run_id, 'pair_relations', feature_id, state, row_sha256
+FROM df_fact_pair_relation WHERE state IN ('FAILED','ERROR','INVALID')
+UNION ALL SELECT run_id, 'causal_evidence', feature_id, state, row_sha256
+FROM df_fact_feature_causal_evidence WHERE state IN ('FAILED','ERROR','INVALID');
+
+CREATE VIEW IF NOT EXISTS df_feature_selection_dashboard AS
+SELECT r.run_id,
+       (SELECT count(DISTINCT feature_id) FROM df_feature_selection_coverage c
+        WHERE c.run_id = r.run_id) AS total_features,
+       (SELECT count(DISTINCT feature_id) FROM df_fact_feature_selection_decision d
+        WHERE d.run_id = r.run_id AND d.decision = 'SELECTED') AS selected_features,
+       (SELECT count(*) FROM df_feature_selection_failures f
+        WHERE f.run_id = r.run_id) AS failed_rows
+FROM df_dim_feature_selection_run r;
+"""
