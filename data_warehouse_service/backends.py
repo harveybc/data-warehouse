@@ -31,6 +31,12 @@ CAPABILITIES = (
     "write_feature_selection_envelope",
     # Authenticated readback of the complete phase-1 identity population.
     "reconcile_feature_selection",
+    # Phase-2/3 feature-selection rows (feature-feature dependency, redundancy, filters).
+    # One owned write route; paged readback of rows exactly as submitted; reconciliation of
+    # stored counts and digests per table. Workers never receive a database path.
+    "write_fs_phase23_rows",
+    "read_fs_phase23_rows",
+    "reconcile_fs_phase23",
 )
 
 
@@ -100,6 +106,15 @@ class WarehouseBackendBase:
 
     def reconcile_feature_selection(self, request: dict):
         self._refuse("reconcile_feature_selection")
+
+    def write_fs_phase23_rows(self, document: dict):
+        self._refuse("write_fs_phase23_rows")
+
+    def read_fs_phase23_rows(self, document: dict):
+        self._refuse("read_fs_phase23_rows")
+
+    def reconcile_fs_phase23(self, document: dict):
+        self._refuse("reconcile_fs_phase23")
 
 
 def check_capabilities(declared) -> tuple:

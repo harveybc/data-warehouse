@@ -258,6 +258,49 @@ def create_app(config: dict, backend, identity: dict | None = None) -> Flask:
             return _answer(exc)
         return jsonify(result), 200
 
+    @app.post("/api/v2/fs-phase23/rows")
+    def api_fs_phase23_rows_write():
+        """Store one phase-2/3 submission ({run_id, table, rows, unit_id?, host_role?, shard_id?})
+        atomically through the database owner; answers the receipt the follower verifies."""
+        denied = _auth() or _needs("write_fs_phase23_rows")
+        if denied:
+            return denied
+        body = request.get_json(silent=True)
+        document = body.get("document") if isinstance(body, dict) and "document" in body else body
+        try:
+            result = backend.write_fs_phase23_rows(document)
+        except (Exception, SystemExit) as exc:
+            return _answer(exc)
+        return jsonify(result), (201 if result.get("inserted") else 200)
+
+    @app.get("/api/v2/fs-phase23/rows")
+    def api_fs_phase23_rows_read():
+        """Rows exactly as submitted, paged by row_key: run_id, table, unit_id?, after?, limit?."""
+        denied = _auth() or _needs("read_fs_phase23_rows")
+        if denied:
+            return denied
+        document = {key: request.args.get(key) for key in ("run_id", "table", "unit_id", "after", "limit")
+                    if request.args.get(key) is not None}
+        try:
+            result = backend.read_fs_phase23_rows(document)
+        except (Exception, SystemExit) as exc:
+            return _answer(exc)
+        return jsonify(result), 200
+
+    @app.post("/api/v2/fs-phase23/reconcile")
+    def api_fs_phase23_reconcile():
+        """Stored counts and digests per table for one run ({run_id, receipts?, expected?})."""
+        denied = _auth() or _needs("reconcile_fs_phase23")
+        if denied:
+            return denied
+        body = request.get_json(silent=True)
+        document = body.get("document") if isinstance(body, dict) and "document" in body else body
+        try:
+            result = backend.reconcile_fs_phase23(document)
+        except (Exception, SystemExit) as exc:
+            return _answer(exc)
+        return jsonify(result), 200
+
     @app.get("/api/v1/download")
     @app.get("/api/v2/download")
     def api_download():
