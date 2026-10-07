@@ -2,7 +2,7 @@ from setuptools import find_packages, setup
 
 setup(
     name="data-warehouse-service",
-    version="0.1.1",
+    version="0.1.2",
     description="Reusable warehouse host: HTTP contract, configuration and backend interface",
     packages=find_packages(include=["data_warehouse_service", "data_warehouse_service.*"]),
     include_package_data=True,

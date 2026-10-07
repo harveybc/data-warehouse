@@ -301,6 +301,52 @@ def create_app(config: dict, backend, identity: dict | None = None) -> Flask:
             return _answer(exc)
         return jsonify(result), 200
 
+    @app.post("/api/v2/fs4/terminals")
+    def api_fs4_terminals_write():
+        """Store one phase-4 submission ({plan_sha256, terminals, host_role?}) atomically through the
+        database owner; answers the receipt the closure follower verifies by readback."""
+        denied = _auth() or _needs("write_fs4_terminals")
+        if denied:
+            return denied
+        body = request.get_json(silent=True)
+        document = body.get("document") if isinstance(body, dict) and "document" in body else body
+        try:
+            result = backend.write_fs4_terminals(document)
+        except (Exception, SystemExit) as exc:
+            return _answer(exc)
+        return jsonify(result), (201 if result.get("inserted") else 200)
+
+    @app.get("/api/v2/fs4/terminals")
+    def api_fs4_terminals_read():
+        """Terminals exactly as submitted, paged by task_id: plan_sha256, task_id?, population_id?,
+        feature_id?, fold_id?, arm?, after?, limit?."""
+        denied = _auth() or _needs("read_fs4_terminals")
+        if denied:
+            return denied
+        document = {key: request.args.get(key) for key in ("plan_sha256", "task_id", "population_id", "feature_id",
+                                                           "fold_id", "arm", "after", "limit")
+                    if request.args.get(key) is not None}
+        try:
+            result = backend.read_fs4_terminals(document)
+        except (Exception, SystemExit) as exc:
+            return _answer(exc)
+        return jsonify(result), 200
+
+    @app.post("/api/v2/fs4/reconcile")
+    def api_fs4_reconcile():
+        """Stored counts, arm-triple agreement and receipt coverage for one plan
+        ({plan_sha256, expected?, receipts?})."""
+        denied = _auth() or _needs("reconcile_fs4")
+        if denied:
+            return denied
+        body = request.get_json(silent=True)
+        document = body.get("document") if isinstance(body, dict) and "document" in body else body
+        try:
+            result = backend.reconcile_fs4(document)
+        except (Exception, SystemExit) as exc:
+            return _answer(exc)
+        return jsonify(result), 200
+
     @app.get("/api/v1/download")
     @app.get("/api/v2/download")
     def api_download():

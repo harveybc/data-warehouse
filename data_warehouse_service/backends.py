@@ -37,6 +37,12 @@ CAPABILITIES = (
     "write_fs_phase23_rows",
     "read_fs_phase23_rows",
     "reconcile_fs_phase23",
+    # Phase-4 extractibility terminals (feature x fold x arm, one controller task each). One
+    # owned write route keyed by task_id (idempotent replay); paged readback of terminals
+    # exactly as submitted; reconciliation against the controller's expected counts.
+    "write_fs4_terminals",
+    "read_fs4_terminals",
+    "reconcile_fs4",
 )
 
 
@@ -115,6 +121,15 @@ class WarehouseBackendBase:
 
     def reconcile_fs_phase23(self, document: dict):
         self._refuse("reconcile_fs_phase23")
+
+    def write_fs4_terminals(self, document: dict):
+        self._refuse("write_fs4_terminals")
+
+    def read_fs4_terminals(self, document: dict):
+        self._refuse("read_fs4_terminals")
+
+    def reconcile_fs4(self, document: dict):
+        self._refuse("reconcile_fs4")
 
 
 def check_capabilities(declared) -> tuple:
