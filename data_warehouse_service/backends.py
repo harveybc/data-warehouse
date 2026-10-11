@@ -43,6 +43,13 @@ CAPABILITIES = (
     "write_fs4_terminals",
     "read_fs4_terminals",
     "reconcile_fs4",
+    # DOIN archive projection (I6-N lane D). The analytic content is an ordinary governed
+    # report; the projection adds typed receipt identity plus chain/archive metadata and an
+    # append-only event history. A reorg appends a revocation, never a delete. Only finalized
+    # references are written, by the owner process; workers never receive a database path.
+    "write_doin_projection",
+    "read_doin_projection",
+    "revoke_doin_projection",
 )
 
 
@@ -130,6 +137,15 @@ class WarehouseBackendBase:
 
     def reconcile_fs4(self, document: dict):
         self._refuse("reconcile_fs4")
+
+    def write_doin_projection(self, document: dict):
+        self._refuse("write_doin_projection")
+
+    def read_doin_projection(self, document: dict):
+        self._refuse("read_doin_projection")
+
+    def revoke_doin_projection(self, document: dict):
+        self._refuse("revoke_doin_projection")
 
 
 def check_capabilities(declared) -> tuple:

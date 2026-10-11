@@ -347,6 +347,54 @@ def create_app(config: dict, backend, identity: dict | None = None) -> Flask:
             return _answer(exc)
         return jsonify(result), 200
 
+    @app.post("/api/v2/doin/projections")
+    def api_doin_projection_write():
+        """Project one FINALIZED, verified receipt row ({schema, report, projection}) through
+        the database owner. 201 when metrics or a projection were added, 200 for a replay,
+        a duplicate or a reinstatement; 400 for a refusal before any write."""
+        denied = _auth() or _needs("write_doin_projection")
+        if denied:
+            return denied
+        body = request.get_json(silent=True)
+        document = body.get("document") if isinstance(body, dict) and "document" in body else body
+        try:
+            result = backend.write_doin_projection(document)
+        except (Exception, SystemExit) as exc:
+            return _answer(exc)
+        return jsonify(result), (201 if result.get("state") == "PROJECTED" else 200)
+
+    @app.get("/api/v2/doin/projections")
+    def api_doin_projection_read():
+        """Projections with current state, their events and gov_metric rows, selected by
+        report_sha256, projection_key, row_key_sha256, block_hash or experiment."""
+        denied = _auth() or _needs("read_doin_projection")
+        if denied:
+            return denied
+        document = {}
+        for key in ("report_sha256", "projection_key", "row_key_sha256", "block_hash", "experiment"):
+            values = request.args.getlist(key)
+            if values:
+                document[key] = values if len(values) > 1 else values[0]
+        try:
+            result = backend.read_doin_projection(document)
+        except (Exception, SystemExit) as exc:
+            return _answer(exc)
+        return jsonify(result), 200
+
+    @app.post("/api/v2/doin/projections/revoke")
+    def api_doin_projection_revoke():
+        """Append REVOKED to every projection of one block that is no longer canonical."""
+        denied = _auth() or _needs("revoke_doin_projection")
+        if denied:
+            return denied
+        body = request.get_json(silent=True)
+        document = body.get("document") if isinstance(body, dict) and "document" in body else body
+        try:
+            result = backend.revoke_doin_projection(document)
+        except (Exception, SystemExit) as exc:
+            return _answer(exc)
+        return jsonify(result), 200
+
     @app.get("/api/v1/download")
     @app.get("/api/v2/download")
     def api_download():
